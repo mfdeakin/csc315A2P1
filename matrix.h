@@ -1,10 +1,11 @@
 
-#ifndef _MATRIXH_
-#define _MATRIXH_
+#ifndef __MATRIX_H
+#define __MATRIX_H
 
 struct matrix;
 
 struct matrix *mtxCreate(unsigned width, unsigned height);
+struct matrix *mtxCreateI(unsigned size);
 void mtxFree(struct matrix *mtx);
 struct matrix *mtxAdd(struct matrix *lhs, struct matrix *rhs);
 struct matrix *mtxNeg(struct matrix *mtx);

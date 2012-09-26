@@ -37,6 +37,22 @@ struct matrix *mtxCreate(unsigned width, unsigned height)
 	return mtx;
 }
 
+struct matrix *mtxCreateI(unsigned size)
+{
+	if(!size) {
+		debug("mtxCreateI: size is zero\n");
+		return NULL;
+	}
+	struct matrix *mtx = malloc(sizeof(struct matrix));
+	mtx->mtx = malloc(sizeof(float[size][size]));
+	memset(mtx->mtx, 0.0f, sizeof(float[size][size]));
+	for(int i = 0; i < 9; i += 4)
+		mtx->mtx[i] = 1.0f;
+	mtx->width = size;
+	mtx->height = size;
+	return mtx;
+}
+
 void mtxFree(struct matrix *mtx)
 {
 	free(mtx->mtx);
@@ -86,7 +102,7 @@ struct matrix *mtxMul(struct matrix *lhs, struct matrix *rhs)
 	}
 	struct matrix *mtx = mtxCreate(rhs->width, lhs->height);
 	unsigned i;
-	unsigned x, y;
+	unsigned x = 0, y = 0;
 	for(i = 0; i < (mtx->width * mtx->height); i++, x++) {
 		if(x == mtx->width) {
 			x = 0;
@@ -97,7 +113,7 @@ struct matrix *mtxMul(struct matrix *lhs, struct matrix *rhs)
 		rOff = matrixPos(rhs, x, 0);
 		for(xyPos = 0; xyPos < lhs->width; xyPos++)
 			mtx->mtx[i] += lhs->mtx[lOff + xyPos] *
-				rhs->mtx[rOff + xyPos];
+				rhs->mtx[rOff + xyPos * rhs->width];
 	}
 	return mtx;
 }

@@ -1,9 +1,7 @@
 
-#include <GL/gl.h>
-#include <GL/glut.h>
-#include <math.h>
-
 #include "draw.h"
+
+#include <math.h>
 
 enum Region {
 	CENTER = 0,
@@ -22,6 +20,10 @@ bool ptCompare(struct pt lhs, struct pt rhs)
 
 void drawLine(struct pt start, struct pt end)
 {
+	start.x += OFFWIDTH;
+	start.y += OFFHEIGHT;
+	end.x += OFFWIDTH;
+	end.y += OFFHEIGHT;
 	if(!ptCompare(start, end) &&
 		 clipLine(&start, &end)) {
 		glColor3f(1.0f, 0.0f, 0.0f);
