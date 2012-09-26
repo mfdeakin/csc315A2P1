@@ -18,6 +18,7 @@
 struct matrix *arrow[ARROWPOINTS];
 struct matrix *rotate, *rotateInv;
 struct matrix *scale, *scaleInv;
+struct matrix *reflect;
 struct matrix *transform;
 
 void drawView(void);
@@ -127,7 +128,7 @@ void keypress(unsigned char key, int x, int y)
 	case 'q':
 		exit(0);
 	case 'r':
-		glutPostRedisplay();
+		transformArrow(reflect);
 		break;
 	}
 }
@@ -184,6 +185,15 @@ void initMatrices(void)
 	for(int i = 0; i < 3; i++)
 		for(int j = 0; j < 3; j++)
 			mtxSet(scaleInv, i, j, scaleInvPoints[i][j]);
+
+	float reflectPoints[3][3] = {
+		{-1.0f, 0.0f, 0.0f},
+		{0.0f, 1.0f, 0.0f},
+		{0.0f, 0.0f, 1.0f}};
+	reflect = mtxCreate(3, 3);
+	for(int i = 0; i < 3; i++)
+		for(int j = 0; j < 3; j++)
+			mtxSet(reflect, i, j, reflectPoints[i][j]);
 
 	transform = mtxCreateI(3);
 }
