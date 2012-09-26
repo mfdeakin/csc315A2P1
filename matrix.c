@@ -53,6 +53,15 @@ struct matrix *mtxCreateI(unsigned size)
 	return mtx;
 }
 
+struct matrix *mtxCopy(struct matrix *mtx)
+{
+	struct matrix *copy = mtxCreate(mtx->width, mtx->height);
+	int i;
+	for(i = 0; i < (mtx->width * mtx->height); i++)
+		copy->mtx[i] = mtx->mtx[i];
+	return copy;
+}
+
 void mtxFree(struct matrix *mtx)
 {
 	free(mtx->mtx);

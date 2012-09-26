@@ -17,6 +17,14 @@ struct pt {
 	GLint x, y;
 };
 
+enum Region {
+	CENTER = 0,
+	LEFT = 1,
+	RIGHT = 2,
+	TOP = 8,
+	BOTTOM = 4
+};
+
 void drawLine(struct pt start, struct pt end);
 bool clipLine(struct pt *p1, struct pt *p2);
 bool ptCompare(struct pt lhs, struct pt rhs);

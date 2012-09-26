@@ -3,14 +3,6 @@
 
 #include <math.h>
 
-enum Region {
-	CENTER = 0,
-	LEFT = 1,
-	RIGHT = 2,
-	TOP = 8,
-	BOTTOM = 4
-};
-
 bool ptCompare(struct pt lhs, struct pt rhs)
 {
 	if(lhs.x != rhs.x || lhs.y != rhs.y)

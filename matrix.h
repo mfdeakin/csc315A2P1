@@ -6,6 +6,7 @@ struct matrix;
 
 struct matrix *mtxCreate(unsigned width, unsigned height);
 struct matrix *mtxCreateI(unsigned size);
+struct matrix *mtxCopy(struct matrix *mtx);
 void mtxFree(struct matrix *mtx);
 struct matrix *mtxAdd(struct matrix *lhs, struct matrix *rhs);
 struct matrix *mtxNeg(struct matrix *mtx);

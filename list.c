@@ -6,8 +6,8 @@ struct list
 {
 	struct list_elem *front;
 	struct list_elem *current;
-	size_t elem_size;
 	int circular:1;
+	int size;
 };
 
 struct list_elem
@@ -16,7 +16,7 @@ struct list_elem
 	void *item;
 };
 
-struct list *list_create(size_t elem_size, int iscircle);
+struct list *list_create(int iscircle);
 void list_delete(struct list *lst);
 void *list_next(struct list *lst);
 void *list_getitem(struct list *lst);
@@ -26,13 +26,13 @@ int list_insert(struct list *lst, void *item);
 struct list *list_map(struct list *lst, void *(*mapping)(void *));
 void list_apply(struct list *lst, void (*func)(void *));
 
-struct list *list_create(size_t elem_size, int iscircle)
+struct list *list_create(int iscircle)
 {
 	struct list *ret = malloc(sizeof(struct list));
-	ret->elem_size = elem_size;
 	ret->circular = iscircle;
 	ret->front = ret->current = malloc(sizeof(struct list_elem));
 	memset(ret->front, 0, sizeof(struct list_elem));
+	ret->size = 0;
 	return ret;
 }
 
@@ -43,7 +43,6 @@ void list_delete(struct list *lst)
 		{
 			lst->front = lst->current;
 			lst->current = lst->current->nxt;
-			free(lst->front->item);
 			free(lst->front);
 		}
 	free(lst);
@@ -57,8 +56,10 @@ void *list_next(struct list *lst)
 				lst->current = lst->front;
 			else
 				lst->current = lst->current->nxt;
+			if(lst->current)
+				return lst->current->item;
 		}
-	return lst->current->item;
+	return NULL;
 }
 
 void *list_getitem(struct list *lst)
@@ -79,10 +80,14 @@ int list_gotoitem(struct list *lst, void *item, int (*compare)(void *orig, void 
 	return (lst->current != finder);
 }
 
+void list_gotofront(struct list *lst)
+{
+	lst->current = lst->front;
+}
+
 int list_setitem(struct list *lst, void *item)
 {
-	lst->current->item = malloc(lst->elem_size);
-	memcpy(lst->current->item, item, lst->elem_size);
+	lst->current->item = item;
 	return 1;
 }
 
@@ -95,12 +100,13 @@ int list_insert(struct list *lst, void *item)
 	prv->nxt = lst->current = malloc(sizeof(struct list_elem));
 	lst->current->nxt = nxt;
 	int ret = list_setitem(lst, item);
+	lst->size++;
 	return ret;
 }
 
 struct list *list_map(struct list *lst, void *(*mapping)(void *))
 {
-	struct list *ret = list_create(lst->elem_size, lst->circular);
+	struct list *ret = list_create(lst->circular);
 	if(lst->front->nxt == NULL)
 		return ret;
 	struct list_elem *cur = lst->front->nxt;
@@ -120,4 +126,9 @@ void list_apply(struct list *lst, void (*func)(void *))
 		func(cur->item);
 		cur = cur->nxt;
 	}
+}
+
+int list_size(struct list *lst)
+{
+	return lst->size;
 }

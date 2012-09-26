@@ -1,5 +1,6 @@
 
 #include <math.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,8 +19,11 @@
 struct matrix *arrow[ARROWPOINTS];
 struct matrix *rotate, *rotateInv;
 struct matrix *scale, *scaleInv;
-struct matrix *reflect;
+struct matrix *reflectX;
 struct matrix *transform;
+
+bool fill;
+int speed;
 
 void drawView(void);
 void drawArrow(void);
@@ -28,7 +32,10 @@ void mpress(int btn, int state, int x, int y);
 void resize(GLsizei width, GLsizei height);
 void keypress(unsigned char key, int x, int y);
 void timer(int val);
+struct pt mtxToPoint(struct matrix *mtx);
+struct matrix *ptToMatrix(struct pt *pt);
 void transformArrow(struct matrix *mtx);
+struct list *clipArrow();
 
 void display(void)
 {
@@ -48,17 +55,162 @@ void timer(int val)
 void drawArrow(void)
 {
 	transformArrow(transform);
-	for(int i = 0; i < ARROWPOINTS - 1; i++) {
-		drawLine((struct pt){mtxGet(arrow[i], 0, 0) + CENTERX,
-					mtxGet(arrow[i], 0, 1) + CENTERY},
-			(struct pt){mtxGet(arrow[i + 1], 0, 0) + CENTERX,
-					mtxGet(arrow[i + 1], 0, 1) + CENTERY});
+	struct list *lst = clipArrow();
+	list_gotofront(lst);
+	struct matrix *mtx = list_next(lst);
+	struct pt prev, next, first;
+	next = mtxToPoint(mtx);
+	mtxFree(mtx);
+	first = next;
+	mtx = list_next(lst);
+	while(mtx) {
+		prev = next;
+		next = mtxToPoint(mtx);
+		glBegin(GL_POINTS);
+		glColor3f(0.0f, 1.0f, 1.0f);
+		glVertex2i(next.x + OFFWIDTH, next.y + OFFHEIGHT);
+		glVertex2i(prev.x + OFFWIDTH, prev.y + OFFHEIGHT);
+		glEnd();
+		drawLine(prev, next);
+		glBegin(GL_POINTS);
+		glColor3f(0.0f, 1.0f, 1.0f);
+		glVertex2i(next.x + OFFWIDTH, next.y + OFFHEIGHT);
+		glVertex2i(prev.x + OFFWIDTH, prev.y + OFFHEIGHT);
+		glEnd();
+		mtxFree(mtx);
+		mtx = list_next(lst);
 	}
+	drawLine(next, first);
+	list_delete(lst);
+}
 
-	drawLine((struct pt){mtxGet(arrow[0], 0, 0) + CENTERX,
-				mtxGet(arrow[0], 0, 1) + CENTERY},
-		(struct pt){mtxGet(arrow[ARROWPOINTS - 1], 0, 0) + CENTERX,
-				mtxGet(arrow[ARROWPOINTS - 1], 0, 1) + CENTERY});
+struct list *clipArrow()
+{
+	struct list *lst = list_create(0);
+	for(int i = 0; i < ARROWPOINTS; i++) {
+		float x = mtxGet(arrow[i], 0, 0) + CENTERX + OFFWIDTH;
+		float y = mtxGet(arrow[i], 0, 1) + CENTERY + OFFHEIGHT;
+		if(inViewport(x, y)) {
+			struct matrix *tmp = mtxCopy(arrow[i]);
+			list_insert(lst, tmp);
+		}
+		else {
+			struct pt cur = mtxToPoint(arrow[i]), prv;
+			if(i == 0)
+				prv = mtxToPoint(arrow[ARROWPOINTS - 1]);
+			else
+				prv = mtxToPoint(arrow[i - 1]);
+			enum Region r1 = pointRegion(cur),
+				r2 = pointRegion(prv);
+			struct pt curbuf = cur;
+			if(!(r1 & r2)) {
+				printf("x: %d, y: %d\n", curbuf.x, curbuf.y);
+				glBegin(GL_POINTS);
+				if(curbuf.x < 0) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.y = interpolateX(curbuf, prv, 0);
+					curbuf.x = 0;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					printf("new x: %d, new y: %d\n", curbuf.x, curbuf.y);
+				}
+				if(curbuf.x > VIEWWIDTH) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.y = interpolateX(curbuf, prv, VIEWWIDTH);
+					curbuf.x = VIEWWIDTH;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				if(curbuf.y < 0) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.x = interpolateY(curbuf, prv, 0);
+					curbuf.y = 0;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				if(curbuf.y > VIEWHEIGHT) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.x = interpolateY(curbuf, prv, VIEWHEIGHT);
+					curbuf.y = VIEWHEIGHT;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				struct matrix *mtx = ptToMatrix(&curbuf);
+				list_insert(lst, mtx);
+				glEnd();
+			}
+			else {
+				/* Not certain what to do here yet */
+			}
+			struct pt nxt;
+			if(i == ARROWPOINTS - 1)
+				nxt = mtxToPoint(arrow[0]);
+			else
+				nxt = mtxToPoint(arrow[i + 1]);
+			curbuf = cur;
+			r1 = pointRegion(cur);
+			r2 = pointRegion(nxt);
+			if(!(r1 & r2)) {
+				glBegin(GL_POINTS);
+				if(curbuf.x < 0) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.y = interpolateX(curbuf, nxt, 0);
+					curbuf.x = 0;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				if(curbuf.x > VIEWWIDTH) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.y = interpolateX(curbuf, nxt, VIEWWIDTH);
+					curbuf.x = VIEWWIDTH;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				if(curbuf.y < 0) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.x = interpolateY(curbuf, nxt, 0);
+					curbuf.y = 0;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				if(curbuf.y > VIEWHEIGHT) {
+					glColor3f(0.0f, 1.0f, 0.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+					curbuf.x = interpolateY(curbuf, nxt, VIEWHEIGHT);
+					curbuf.y = VIEWHEIGHT;
+					glColor3f(0.0f, 0.0f, 1.0f);
+					glVertex2i(curbuf.x + OFFWIDTH,
+										 curbuf.y + OFFHEIGHT);
+				}
+				struct matrix *mtx = ptToMatrix(&curbuf);
+				list_insert(lst, mtx);
+				glEnd();
+			}
+		}
+	}
+	return lst;
 }
 
 void drawView(void)
@@ -94,7 +246,6 @@ void resize(GLsizei width, GLsizei height)
 
 void mpress(int btn, int state, int x, int y)
 {
-	static int speed = 0;
 	if(state != GLUT_DOWN)
 		return;
 	if(inViewport(x, y)) {
@@ -128,8 +279,35 @@ void keypress(unsigned char key, int x, int y)
 	case 'q':
 		exit(0);
 	case 'r':
-		transformArrow(reflect);
+		transformArrow(reflectX);
 		break;
+	case 'f':
+		fill = !fill;
+		break;
+	case 's':
+		mtxFree(transform);
+		transform = mtxCreateI(3);
+		speed = 0;
+		break;
+	case 'w': {
+		/* Resets the arrow */
+		int points[ARROWPOINTS][3] = {
+			{200, 0, 1},
+			{75, 100, 1},
+			{100, 50, 1},
+			{-200, 50, 1},
+			{-200, -50, 1},
+			{100, -50, 1},
+			{75, -100, 1}};
+		for(int i = 0; i < ARROWPOINTS; i++) {	
+			mtxFree(arrow[i]);
+			arrow[i] = mtxCreate(1, 3);
+			for(int j = 0; j < 3; j++) {
+				mtxSet(arrow[i], 0, j, points[i][j]);
+			}
+		}
+	}
+
 	}
 }
 
@@ -190,16 +368,35 @@ void initMatrices(void)
 		{-1.0f, 0.0f, 0.0f},
 		{0.0f, 1.0f, 0.0f},
 		{0.0f, 0.0f, 1.0f}};
-	reflect = mtxCreate(3, 3);
+	reflectX = mtxCreate(3, 3);
 	for(int i = 0; i < 3; i++)
 		for(int j = 0; j < 3; j++)
-			mtxSet(reflect, i, j, reflectPoints[i][j]);
+			mtxSet(reflectX, i, j, reflectPoints[i][j]);
 
 	transform = mtxCreateI(3);
 }
 
+struct pt mtxToPoint(struct matrix *mtx)
+{
+	return (struct pt){
+		(int)mtxGet(mtx, 0, 0) + CENTERX,
+			(int)mtxGet(mtx, 0, 1) + CENTERY
+			};
+}
+
+struct matrix *ptToMatrix(struct pt *pt)
+{
+	struct matrix *mtx = mtxCreate(1, 3);
+	mtxSet(mtx, 0, 0, pt->x);
+	mtxSet(mtx, 0, 1, pt->y);
+	mtxSet(mtx, 0, 0, 1);
+	return mtx;
+}
+
 int main(int argc, char **argv)
 {
+	fill = false;
+	speed = 0;
 	initMatrices();
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
@@ -212,6 +409,7 @@ int main(int argc, char **argv)
 	glutMouseFunc(mpress);
 	glutKeyboardFunc(keypress);
 	glutTimerFunc(10, timer, 0);
+	glPointSize(5);
 	glutMainLoop();
   return 0;
 }
