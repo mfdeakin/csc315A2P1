@@ -19,9 +19,8 @@ struct pt {
 
 void drawLine(struct pt start, struct pt end);
 bool clipLine(struct pt *p1, struct pt *p2);
-void resize(GLsizei width, GLsizei height);
-void mpress(int btn, int state, int x, int y);
 bool ptCompare(struct pt lhs, struct pt rhs);
+bool inViewport(int x, int y);
 
 enum Region pointRegion(struct pt point);
 int interpolateX(struct pt p1, struct pt p2, int p1x);

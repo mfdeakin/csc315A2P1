@@ -18,6 +18,14 @@ bool ptCompare(struct pt lhs, struct pt rhs)
 	return true;
 }
 
+bool inViewport(int x, int y) {
+	if(x > OFFWIDTH && y > OFFWIDTH &&
+		 x < OFFWIDTH + VIEWWIDTH &&
+		 y < OFFWIDTH + VIEWWIDTH)
+		return true;
+	return false;
+}
+
 void drawLine(struct pt start, struct pt end)
 {
 	start.x += OFFWIDTH;

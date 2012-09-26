@@ -17,6 +17,7 @@
 
 struct matrix *arrow[ARROWPOINTS];
 struct matrix *rotate, *rotateInv;
+struct matrix *scale, *scaleInv;
 struct matrix *transform;
 
 void drawView(void);
@@ -26,6 +27,7 @@ void mpress(int btn, int state, int x, int y);
 void resize(GLsizei width, GLsizei height);
 void keypress(unsigned char key, int x, int y);
 void timer(int val);
+void transformArrow(struct matrix *mtx);
 
 void display(void)
 {
@@ -44,12 +46,7 @@ void timer(int val)
 
 void drawArrow(void)
 {
-	/* First update the points with the transform matrix */
-	for(int i = 0; i < ARROWPOINTS; i++) {
-		struct matrix *tmp = mtxMul(transform, arrow[i]);
-		mtxFree(arrow[i]);
-		arrow[i] = tmp;
-	}
+	transformArrow(transform);
 	for(int i = 0; i < ARROWPOINTS - 1; i++) {
 		drawLine((struct pt){mtxGet(arrow[i], 0, 0) + CENTERX,
 					mtxGet(arrow[i], 0, 1) + CENTERY},
@@ -76,6 +73,14 @@ void drawView(void)
 	glEnd();
 }
 
+void transformArrow(struct matrix *mtx) {
+	for(int i = 0; i < ARROWPOINTS; i++) {
+		struct matrix *tmp = mtxMul(mtx, arrow[i]);
+		mtxFree(arrow[i]);
+		arrow[i] = tmp;
+	}
+}
+
 void resize(GLsizei width, GLsizei height)
 {
 	glViewport(0, 0, width, height);
@@ -88,17 +93,30 @@ void resize(GLsizei width, GLsizei height)
 
 void mpress(int btn, int state, int x, int y)
 {
+	static int speed = 0;
 	if(state != GLUT_DOWN)
 		return;
-	if(btn == GLUT_LEFT_BUTTON) {
-		struct matrix *tmp = mtxMul(rotate, transform);
-		mtxFree(transform);
-		transform = tmp;
+	if(inViewport(x, y)) {
+		if(btn == GLUT_LEFT_BUTTON && speed < 10) {
+			struct matrix *tmp = mtxMul(rotate, transform);
+			mtxFree(transform);
+			transform = tmp;
+			speed++;
+		}
+		else if(btn == GLUT_RIGHT_BUTTON && speed > -10) {
+			struct matrix *tmp = mtxMul(rotateInv, transform);
+			mtxFree(transform);
+			transform = tmp;
+			speed--;
+		}
 	}
-	else if(btn == GLUT_RIGHT_BUTTON) {
-		struct matrix *tmp = mtxMul(rotateInv, transform);
-		mtxFree(transform);
-		transform = tmp;
+	else {
+		if(btn == GLUT_LEFT_BUTTON) {
+			transformArrow(scale);
+		}
+		else if(btn == GLUT_RIGHT_BUTTON) {
+			transformArrow(scaleInv);
+		}
 	}
 }
 
@@ -141,13 +159,32 @@ void initMatrices(void)
 			mtxSet(rotate, i, j, rotPoints[i][j]);
 
 	float rotnegPoints[3][3] = {
-		{cos(1 * PI / 180), sin(1 * PI / 180), 0},
-		{-sin(1 * PI / 180), cos(1 * PI / 180), 0},
+		{cosf(1 * PI / 180), sinf(1 * PI / 180), 0},
+		{-sinf(1 * PI / 180), cosf(1 * PI / 180), 0},
 		{0, 0, 1}};
 	rotateInv = mtxCreate(3, 3);
 	for(int i = 0; i < 3; i++)
 		for(int j = 0; j < 3; j++)
 			mtxSet(rotateInv, i, j, rotnegPoints[i][j]);
+
+	float scalePoints[3][3] = {
+		{1.05f, 0.0f, 0.0f},
+		{0.0f, 1.05f, 0.0f},
+		{0.0f, 0.0f, 1.0f}};
+	scale = mtxCreate(3, 3);
+	for(int i = 0; i < 3; i++)
+		for(int j = 0; j < 3; j++)
+			mtxSet(scale, i, j, scalePoints[i][j]);
+
+	float scaleInvPoints[3][3] = {
+		{1 / 1.05f, 0.0f, 0.0f},
+		{0.0f, 1 / 1.05f, 0.0f},
+		{0.0f, 0.0f, 1.0f}};
+	scaleInv = mtxCreate(3, 3);
+	for(int i = 0; i < 3; i++)
+		for(int j = 0; j < 3; j++)
+			mtxSet(scaleInv, i, j, scaleInvPoints[i][j]);
+
 	transform = mtxCreateI(3);
 }
 
