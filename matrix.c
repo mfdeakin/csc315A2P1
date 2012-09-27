@@ -62,6 +62,17 @@ struct matrix *mtxCopy(struct matrix *mtx)
 	return copy;
 }
 
+struct matrix *mtxFromArray(float array[], unsigned w, unsigned h)
+{
+	struct matrix *mtx = mtxCreate(w, h);
+	int i;
+	int x, y;
+	for(i = 0; i < w * h; i++) {
+		mtx->mtx[i] = array[i];
+	}
+	return mtx;
+}
+
 void mtxFree(struct matrix *mtx)
 {
 	free(mtx->mtx);

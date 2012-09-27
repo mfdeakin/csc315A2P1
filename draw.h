@@ -25,11 +25,13 @@ enum Region {
 	BOTTOM = 4
 };
 
+void drawView();
 void drawLine(struct pt start, struct pt end);
 bool clipLine(struct pt *p1, struct pt *p2);
 bool ptCompare(struct pt lhs, struct pt rhs);
 bool inViewport(int x, int y);
 
+bool ptCompare(struct pt lhs, struct pt rhs);
 enum Region pointRegion(struct pt point);
 int interpolateX(struct pt p1, struct pt p2, int p1x);
 int interpolateY(struct pt p1, struct pt p2, int p1y);

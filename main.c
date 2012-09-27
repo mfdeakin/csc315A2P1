@@ -22,10 +22,11 @@ struct matrix *scale, *scaleInv;
 struct matrix *reflectX;
 struct matrix *transform;
 
+/* Whether or not to fill the arrow */
 bool fill;
+/* How fast the arrow is rotating */
 int speed;
 
-void drawView(void);
 void drawArrow(void);
 void display(void);
 void mpress(int btn, int state, int x, int y);
@@ -66,21 +67,22 @@ void drawArrow(void)
 	while(mtx) {
 		prev = next;
 		next = mtxToPoint(mtx);
-		glBegin(GL_POINTS);
-		glColor3f(0.0f, 1.0f, 1.0f);
-		glVertex2i(next.x + OFFWIDTH, next.y + OFFHEIGHT);
-		glVertex2i(prev.x + OFFWIDTH, prev.y + OFFHEIGHT);
+		//		drawLine(prev, next);
+		glBegin(GL_LINES);
+		glColor3f(1.0f, 0.0f, 0.0f);
+		glVertex2i(prev.x, prev.y);
+		glVertex2i(next.x, next.y);
 		glEnd();
-		drawLine(prev, next);
-		glBegin(GL_POINTS);
-		glColor3f(0.0f, 1.0f, 1.0f);
-		glVertex2i(next.x + OFFWIDTH, next.y + OFFHEIGHT);
-		glVertex2i(prev.x + OFFWIDTH, prev.y + OFFHEIGHT);
-		glEnd();
+
 		mtxFree(mtx);
 		mtx = list_next(lst);
 	}
-	drawLine(next, first);
+	/* drawLine(next, first); */
+	glBegin(GL_LINES);
+	glColor3f(1.0f, 0.0f, 0.0f);
+	glVertex2i(first.x, first.y);
+	glVertex2i(next.x, next.y);
+	glEnd();
 	list_delete(lst);
 }
 
@@ -88,142 +90,25 @@ struct list *clipArrow()
 {
 	struct list *lst = list_create(0);
 	for(int i = 0; i < ARROWPOINTS; i++) {
-		float x = mtxGet(arrow[i], 0, 0) + CENTERX + OFFWIDTH;
-		float y = mtxGet(arrow[i], 0, 1) + CENTERY + OFFHEIGHT;
-		if(inViewport(x, y)) {
-			struct matrix *tmp = mtxCopy(arrow[i]);
-			list_insert(lst, tmp);
+		struct pt cur = mtxToPoint(arrow[i]);
+		struct pt prv;
+		if(i == 0) {
+			prv = mtxToPoint(arrow[ARROWPOINTS - 1]);
 		}
 		else {
-			struct pt cur = mtxToPoint(arrow[i]), prv;
-			if(i == 0)
-				prv = mtxToPoint(arrow[ARROWPOINTS - 1]);
-			else
-				prv = mtxToPoint(arrow[i - 1]);
-			enum Region r1 = pointRegion(cur),
-				r2 = pointRegion(prv);
-			struct pt curbuf = cur;
-			if(!(r1 & r2)) {
-				printf("x: %d, y: %d\n", curbuf.x, curbuf.y);
-				glBegin(GL_POINTS);
-				if(curbuf.x < 0) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.y = interpolateX(curbuf, prv, 0);
-					curbuf.x = 0;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					printf("new x: %d, new y: %d\n", curbuf.x, curbuf.y);
-				}
-				if(curbuf.x > VIEWWIDTH) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.y = interpolateX(curbuf, prv, VIEWWIDTH);
-					curbuf.x = VIEWWIDTH;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				if(curbuf.y < 0) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.x = interpolateY(curbuf, prv, 0);
-					curbuf.y = 0;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				if(curbuf.y > VIEWHEIGHT) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.x = interpolateY(curbuf, prv, VIEWHEIGHT);
-					curbuf.y = VIEWHEIGHT;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				struct matrix *mtx = ptToMatrix(&curbuf);
-				list_insert(lst, mtx);
-				glEnd();
-			}
-			else {
-				/* Not certain what to do here yet */
-			}
-			struct pt nxt;
-			if(i == ARROWPOINTS - 1)
-				nxt = mtxToPoint(arrow[0]);
-			else
-				nxt = mtxToPoint(arrow[i + 1]);
-			curbuf = cur;
-			r1 = pointRegion(cur);
-			r2 = pointRegion(nxt);
-			if(!(r1 & r2)) {
-				glBegin(GL_POINTS);
-				if(curbuf.x < 0) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.y = interpolateX(curbuf, nxt, 0);
-					curbuf.x = 0;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				if(curbuf.x > VIEWWIDTH) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.y = interpolateX(curbuf, nxt, VIEWWIDTH);
-					curbuf.x = VIEWWIDTH;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				if(curbuf.y < 0) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.x = interpolateY(curbuf, nxt, 0);
-					curbuf.y = 0;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				if(curbuf.y > VIEWHEIGHT) {
-					glColor3f(0.0f, 1.0f, 0.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-					curbuf.x = interpolateY(curbuf, nxt, VIEWHEIGHT);
-					curbuf.y = VIEWHEIGHT;
-					glColor3f(0.0f, 0.0f, 1.0f);
-					glVertex2i(curbuf.x + OFFWIDTH,
-										 curbuf.y + OFFHEIGHT);
-				}
-				struct matrix *mtx = ptToMatrix(&curbuf);
-				list_insert(lst, mtx);
-				glEnd();
-			}
+			prv = mtxToPoint(arrow[i - 1]);
 		}
+		struct pt curbuf = cur,
+			prvbuf = prv;
+		clipLine(&curbuf, &prvbuf);
+		struct matrix *mtx;
+		mtx = ptToMatrix(&prvbuf);
+		list_insert(lst, mtx);
+		/* We always need to insert the current point */
+		mtx = ptToMatrix(&curbuf);
+		list_insert(lst, mtx);
 	}
 	return lst;
-}
-
-void drawView(void)
-{
-	glColor3f(1.0f, 1.0f, 1.0f);
-	glBegin(GL_POINTS);
-	struct pt pos;
-	for(pos.x = 100; pos.x < OFFWIDTH + VIEWWIDTH;
-			pos.x++)
-		for(pos.y = 100; pos.y < OFFHEIGHT + VIEWHEIGHT;
-				pos.y++)
-			glVertex2i(pos.x, pos.y);
-	glEnd();
 }
 
 void transformArrow(struct matrix *mtx) {
@@ -289,6 +174,12 @@ void keypress(unsigned char key, int x, int y)
 		transform = mtxCreateI(3);
 		speed = 0;
 		break;
+	case 'm':
+		transformArrow(rotateInv);
+		break;
+	case 'n':
+		transformArrow(rotate);
+		break;
 	case 'w': {
 		/* Resets the arrow */
 		int points[ARROWPOINTS][3] = {
@@ -307,13 +198,13 @@ void keypress(unsigned char key, int x, int y)
 			}
 		}
 	}
-
+		break;
 	}
 }
 
 void initMatrices(void)
 {
-	int points[ARROWPOINTS][3] = {
+	float points[ARROWPOINTS][3] = {
 		{200, 0, 1},
 		{75, 100, 1},
 		{100, 50, 1},
@@ -323,7 +214,7 @@ void initMatrices(void)
 		{75, -100, 1}};
 	for(int i = 0; i < ARROWPOINTS; i++) {	
 		arrow[i] = mtxCreate(1, 3);
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < 3; j++)  {
 			mtxSet(arrow[i], 0, j, points[i][j]);
 		}
 	}
@@ -332,64 +223,52 @@ void initMatrices(void)
 		{cos(1 * PI / 180), -sin(1 * PI / 180), 0},
 		{sin(1 * PI / 180), cos(1 * PI / 180), 0},
 		{0, 0, 1}};
-	rotate = mtxCreate(3, 3);
-	for(int i = 0; i < 3; i++)
-		for(int j = 0; j < 3; j++)
-			mtxSet(rotate, i, j, rotPoints[i][j]);
+	rotate = mtxFromArray((float *)rotPoints, 3, 3);
 
 	float rotnegPoints[3][3] = {
 		{cosf(1 * PI / 180), sinf(1 * PI / 180), 0},
 		{-sinf(1 * PI / 180), cosf(1 * PI / 180), 0},
 		{0, 0, 1}};
-	rotateInv = mtxCreate(3, 3);
-	for(int i = 0; i < 3; i++)
-		for(int j = 0; j < 3; j++)
-			mtxSet(rotateInv, i, j, rotnegPoints[i][j]);
+	rotateInv = mtxFromArray((float *)rotnegPoints, 3, 3);
 
 	float scalePoints[3][3] = {
 		{1.05f, 0.0f, 0.0f},
 		{0.0f, 1.05f, 0.0f},
 		{0.0f, 0.0f, 1.0f}};
-	scale = mtxCreate(3, 3);
-	for(int i = 0; i < 3; i++)
-		for(int j = 0; j < 3; j++)
-			mtxSet(scale, i, j, scalePoints[i][j]);
+	scale = mtxFromArray((float *)scalePoints, 3, 3);
 
 	float scaleInvPoints[3][3] = {
 		{1 / 1.05f, 0.0f, 0.0f},
 		{0.0f, 1 / 1.05f, 0.0f},
 		{0.0f, 0.0f, 1.0f}};
-	scaleInv = mtxCreate(3, 3);
-	for(int i = 0; i < 3; i++)
-		for(int j = 0; j < 3; j++)
-			mtxSet(scaleInv, i, j, scaleInvPoints[i][j]);
+	scaleInv = mtxFromArray((float *)scaleInvPoints, 3, 3);
 
 	float reflectPoints[3][3] = {
 		{-1.0f, 0.0f, 0.0f},
 		{0.0f, 1.0f, 0.0f},
 		{0.0f, 0.0f, 1.0f}};
-	reflectX = mtxCreate(3, 3);
-	for(int i = 0; i < 3; i++)
-		for(int j = 0; j < 3; j++)
-			mtxSet(reflectX, i, j, reflectPoints[i][j]);
-
+	reflectX = mtxFromArray((float *)reflectPoints, 3, 3);
 	transform = mtxCreateI(3);
 }
 
 struct pt mtxToPoint(struct matrix *mtx)
 {
+	/* Matrix is expected to be in arrow coordinates,
+	 * so convert it to global coordinates */
 	return (struct pt){
-		(int)mtxGet(mtx, 0, 0) + CENTERX,
-			(int)mtxGet(mtx, 0, 1) + CENTERY
+		(GLint)mtxGet(mtx, 0, 0) + CENTERX + OFFWIDTH,
+			(GLint)mtxGet(mtx, 0, 1) + CENTERY + OFFHEIGHT
 			};
 }
 
 struct matrix *ptToMatrix(struct pt *pt)
 {
+	/* Point is expected to be in global coordinates,
+	 * so convert it to arrow coordinates */
 	struct matrix *mtx = mtxCreate(1, 3);
-	mtxSet(mtx, 0, 0, pt->x);
-	mtxSet(mtx, 0, 1, pt->y);
-	mtxSet(mtx, 0, 0, 1);
+	mtxSet(mtx, 0, 0, pt->x - CENTERX - OFFWIDTH);
+	mtxSet(mtx, 0, 1, pt->y - CENTERY - OFFHEIGHT);
+	mtxSet(mtx, 0, 2, 1);
 	return mtx;
 }
 

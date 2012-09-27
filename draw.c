@@ -20,87 +20,35 @@ bool inViewport(int x, int y) {
 
 void drawLine(struct pt start, struct pt end)
 {
-	start.x += OFFWIDTH;
-	start.y += OFFHEIGHT;
-	end.x += OFFWIDTH;
-	end.y += OFFHEIGHT;
+	/* Points must be in global coordinates */
 	if(!ptCompare(start, end) &&
 		 clipLine(&start, &end)) {
 		glColor3f(1.0f, 0.0f, 0.0f);
 		glBegin(GL_POINTS);
 
 		GLint deltax = end.x - start.x,
-			deltay = end.y - start.y,
-			x = 0,
-			y = 0;
+			deltay = end.y - start.y;
 	
-		GLfloat m = (float)deltay / deltax;
+		GLfloat mag = sqrtf(deltax * deltax + deltay * deltay),
+			dx = deltax / mag,
+			dy = deltay / mag,
+			x = start.x,
+			y = start.y;
 
-		if(m == INFINITY) {
-			while(y < deltay) {
-				glVertex2i(start.x, start.y + y);
-				y++;
-			}
-		}
-		else if(m == -INFINITY) {
-			while(y > deltay) {
-				glVertex2i(start.x, start.y + y);
-				y--;
-			}
-		}
-		else {
-			float residual = 0;
-			while(x > deltax) {
-				x--;
-				int cnt = 0;
-				do {
-					glVertex2i(start.x + x, start.y + y);
-					cnt++;
-					y--;
-				} while(cnt < m + residual);
-				do {
-					glVertex2i(start.x + x, start.y + y);
-					cnt--;
-					y++;
-				} while(cnt > m + residual);
-				residual = m + residual - cnt;
-			}
-			while(x < deltax) {
-				x++;
-				int cnt = 0;
-				do {
-					glVertex2i(start.x + x, start.y + y);
-					cnt++;
-					y++;
-				} while(cnt < m + residual);
-				do {
-					glVertex2i(start.x + x, start.y + y);
-					cnt--;
-					y--;
-				} while(cnt > m + residual);
-				residual = m + residual - cnt;
-			}
+		int i;
+		for(i = 0; i <= mag; i++) {
+			glVertex2i((int)x, (int)y);
+			x += dx;
+			y += dy;
+
 		}
 		glEnd();
 	}
 }
 
-enum Region pointRegion(struct pt point)
-{
-	enum Region reg = CENTER;
-	if(point.x < OFFWIDTH)
-		reg = LEFT;
-	else if(point.x > OFFWIDTH + VIEWWIDTH)
-		reg = RIGHT;
-	if(point.y < OFFHEIGHT)
-		reg |= BOTTOM;
-	else if(point.y > OFFHEIGHT + VIEWHEIGHT)
-		reg |= TOP;
-	return reg;
-}
-
 bool clipLine(struct pt *p1, struct pt *p2)
 {
+	/* Points must be in global coordinates */
 	enum Region reg1 = pointRegion(*p1),
 		reg2 = pointRegion(*p2);
 	if(reg1 & reg2) {
@@ -147,6 +95,32 @@ bool clipLine(struct pt *p1, struct pt *p2)
 		return false;
 	}
 	return true;
+}
+
+void drawView(void)
+{
+	glColor3f(1.0f, 1.0f, 1.0f);
+	glBegin(GL_QUADS);
+	glVertex2i(OFFWIDTH, OFFHEIGHT);
+	glVertex2i(OFFWIDTH, OFFHEIGHT + VIEWHEIGHT);
+	glVertex2i(OFFWIDTH + VIEWWIDTH,
+						 OFFHEIGHT + VIEWHEIGHT);
+	glVertex2i(OFFWIDTH + VIEWWIDTH, OFFHEIGHT);
+	glEnd();
+}
+
+enum Region pointRegion(struct pt point)
+{
+	enum Region reg = CENTER;
+	if(point.x < OFFWIDTH)
+		reg = LEFT;
+	else if(point.x > OFFWIDTH + VIEWWIDTH)
+		reg = RIGHT;
+	if(point.y < OFFHEIGHT)
+		reg |= BOTTOM;
+	else if(point.y > OFFHEIGHT + VIEWHEIGHT)
+		reg |= TOP;
+	return reg;
 }
 
 int interpolateX(struct pt p1, struct pt p2, int newX)
