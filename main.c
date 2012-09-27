@@ -100,13 +100,13 @@ struct list *clipArrow()
 		}
 		struct pt curbuf = cur,
 			prvbuf = prv;
-		clipLine(&curbuf, &prvbuf);
-		struct matrix *mtx;
-		mtx = ptToMatrix(&prvbuf);
-		list_insert(lst, mtx);
-		/* We always need to insert the current point */
-		mtx = ptToMatrix(&curbuf);
-		list_insert(lst, mtx);
+		if(clipLine(&curbuf, &prvbuf)) {
+			struct matrix *mtx;
+			mtx = ptToMatrix(&prvbuf);
+			list_insert(lst, mtx);
+			mtx = ptToMatrix(&curbuf);
+			list_insert(lst, mtx);
+		}
 	}
 	return lst;
 }
