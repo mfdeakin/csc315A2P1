@@ -100,78 +100,76 @@ struct list *clipArrow()
 		}
 		struct pt curbuf = cur,
 			prvbuf = prv;
+		struct matrix *mtx;
 		if(clipLine(&curbuf, &prvbuf)) {
-			struct matrix *mtx;
 			mtx = ptToMatrix(&prvbuf);
 			list_insert(lst, mtx);
 			mtx = ptToMatrix(&curbuf);
 			list_insert(lst, mtx);
+			enum Region p1 = pointRegion(cur);
+			if(p1 == (BOTTOM | LEFT)) {
+				mtx = ptToMatrix(&(struct pt){
+						OFFWIDTH,
+							OFFHEIGHT
+							});
+				list_insert(lst, mtx);
+			}
+			if(p1 == (BOTTOM | RIGHT)) {
+				mtx = ptToMatrix(&(struct pt){
+						OFFWIDTH + VIEWWIDTH,
+							OFFHEIGHT
+					});
+				list_insert(lst, mtx);
+			}
+			if(p1 == (TOP | LEFT)) {
+				mtx = ptToMatrix(&(struct pt){
+						OFFWIDTH,
+							OFFHEIGHT + VIEWHEIGHT
+					});
+				list_insert(lst, mtx);
+			}
+			if(p1 == (TOP | RIGHT)) {
+				mtx = ptToMatrix(&(struct pt){
+						OFFWIDTH + VIEWWIDTH,
+							OFFHEIGHT + VIEWHEIGHT
+							});
+				list_insert(lst, mtx);
+			}
 		}
-		else {
+		else if(list_size(lst)) {
 			struct matrix *mtx;
 			enum Region p1 = pointRegion(cur),
 				p2 = pointRegion(prv);
-			if(p1 & LEFT) {
-				if(p2 & BOTTOM) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH,
-								OFFHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-				if(p2 & TOP) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH,
-								OFFHEIGHT + VIEWHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-			}
-			if(p1 & RIGHT) {
-				if(p2 & BOTTOM) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH + VIEWWIDTH,
-								OFFHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-				if(p2 & TOP) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH + VIEWWIDTH,
-								OFFHEIGHT + VIEWHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-			}
-			if(p1 & BOTTOM) {
-				if(p2 & LEFT) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH,
-								OFFHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-				if(p2 & RIGHT) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH + VIEWWIDTH,
-								OFFHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-			}
-			if(p1 & TOP) {
-				if(p2 & LEFT) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH,
-								OFFHEIGHT + VIEWHEIGHT
-								});
-					list_insert(lst, mtx);
-				}
-				if(p2 & RIGHT) {
-					mtx = ptToMatrix(&(struct pt){
-							OFFWIDTH + VIEWWIDTH,
-								OFFHEIGHT + VIEWHEIGHT
-								});
+			struct {
+				enum Region r1, r2;
+				struct pt pos;
+			} operations[4];
+			operations[0].r1 = LEFT;
+			operations[0].r2 = BOTTOM;
+			operations[0].pos.x = OFFWIDTH;
+			operations[0].pos.y = OFFHEIGHT;
+
+			operations[1].r1 = LEFT;
+			operations[1].r2 = TOP;
+			operations[1].pos.x = OFFWIDTH;
+			operations[1].pos.y = OFFHEIGHT + VIEWHEIGHT;
+
+			operations[2].r1 = TOP;
+			operations[2].r2 = RIGHT;
+			operations[2].pos.x = OFFWIDTH + VIEWWIDTH;
+			operations[2].pos.y = OFFHEIGHT + VIEWHEIGHT;
+
+			operations[3].r1 = TOP;
+			operations[3].r2 = LEFT;
+			operations[3].pos.x = OFFWIDTH;
+			operations[3].pos.y = OFFHEIGHT + VIEWHEIGHT;
+
+			for(i = 0; i < 4; i++) {
+				if((p1 & operations[i].r1 &&
+						p2 & operations[i].r2) ||
+					 (p2 & operations[i].r1 &&
+						p1 & operations[i].r2)) {
+					mtx = ptToMatrix(&operations[i].pos);
 					list_insert(lst, mtx);
 				}
 			}
