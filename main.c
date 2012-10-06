@@ -33,8 +33,6 @@ void mpress(int btn, int state, int x, int y);
 void resize(GLsizei width, GLsizei height);
 void keypress(unsigned char key, int x, int y);
 void timer(int val);
-struct pt mtxToPoint(struct matrix *mtx);
-struct matrix *ptToMatrix(struct pt *pt);
 void transformArrow(struct matrix *mtx);
 struct list *clipArrow();
 
@@ -136,7 +134,7 @@ struct list *clipArrow()
 				list_insert(lst, mtx);
 			}
 		}
-		else if(list_size(lst)) {
+		else {
 			struct matrix *mtx;
 			enum Region p1 = pointRegion(cur),
 				p2 = pointRegion(prv);
@@ -149,10 +147,10 @@ struct list *clipArrow()
 			operations[0].pos.x = OFFWIDTH;
 			operations[0].pos.y = OFFHEIGHT;
 
-			operations[1].r1 = LEFT;
-			operations[1].r2 = TOP;
-			operations[1].pos.x = OFFWIDTH;
-			operations[1].pos.y = OFFHEIGHT + VIEWHEIGHT;
+			operations[1].r1 = RIGHT;
+			operations[1].r2 = BOTTOM;
+			operations[1].pos.x = OFFWIDTH + VIEWWIDTH;
+			operations[1].pos.y = OFFHEIGHT;
 
 			operations[2].r1 = TOP;
 			operations[2].r2 = RIGHT;
@@ -163,13 +161,13 @@ struct list *clipArrow()
 			operations[3].r2 = LEFT;
 			operations[3].pos.x = OFFWIDTH;
 			operations[3].pos.y = OFFHEIGHT + VIEWHEIGHT;
-
-			for(i = 0; i < 4; i++) {
-				if((p1 & operations[i].r1 &&
-						p2 & operations[i].r2) ||
-					 (p2 & operations[i].r1 &&
-						p1 & operations[i].r2)) {
-					mtx = ptToMatrix(&operations[i].pos);
+			int j;
+			for(j = 0; j < 4; j++) {
+				if((p1 & operations[j].r1 &&
+						p2 & operations[j].r2) ||
+					 (p2 & operations[j].r1 &&
+						p1 & operations[j].r2)) {
+					mtx = ptToMatrix(&operations[j].pos);
 					list_insert(lst, mtx);
 				}
 			}
@@ -316,27 +314,6 @@ void initMatrices(void)
 		{0.0f, 0.0f, 1.0f}};
 	reflectX = mtxFromArray((float *)reflectPoints, 3, 3);
 	transform = mtxCreateI(3);
-}
-
-struct pt mtxToPoint(struct matrix *mtx)
-{
-	/* Matrix is expected to be in arrow coordinates,
-	 * so convert it to global coordinates */
-	return (struct pt){
-		(GLint)mtxGet(mtx, 0, 0) + CENTERX + OFFWIDTH,
-			(GLint)mtxGet(mtx, 0, 1) + CENTERY + OFFHEIGHT
-			};
-}
-
-struct matrix *ptToMatrix(struct pt *pt)
-{
-	/* Point is expected to be in global coordinates,
-	 * so convert it to arrow coordinates */
-	struct matrix *mtx = mtxCreate(1, 3);
-	mtxSet(mtx, 0, 0, pt->x - CENTERX - OFFWIDTH);
-	mtxSet(mtx, 0, 1, pt->y - CENTERY - OFFHEIGHT);
-	mtxSet(mtx, 0, 2, 1);
-	return mtx;
 }
 
 int main(int argc, char **argv)

@@ -2,6 +2,8 @@
 #ifndef __MATRIX_H
 #define __MATRIX_H
 
+#include "draw.h"
+
 struct matrix;
 
 struct matrix *mtxCreate(unsigned width, unsigned height);
@@ -15,5 +17,7 @@ struct matrix *mtxMul(struct matrix *lhs, struct matrix *rhs);
 float mtxDeterminate(struct matrix *mtx);
 float mtxGet(struct matrix *mtx, unsigned x, unsigned y);
 int mtxSet(struct matrix *mtx, unsigned x, unsigned y, float val);
+
+struct pt mtxToPoint(struct matrix *mtx);
 
 #endif

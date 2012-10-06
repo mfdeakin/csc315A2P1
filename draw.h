@@ -6,6 +6,8 @@
 #include <GL/glut.h>
 #include <stdbool.h>
 
+#include "matrix.h"
+
 #define VIEWHEIGHT 500.0
 #define VIEWWIDTH 500.0
 #define OFFHEIGHT 100
@@ -35,5 +37,6 @@ bool ptCompare(struct pt lhs, struct pt rhs);
 enum Region pointRegion(struct pt point);
 int interpolateX(struct pt p1, struct pt p2, int p1x);
 int interpolateY(struct pt p1, struct pt p2, int p1y);
+struct matrix *ptToMatrix(struct pt *pt);
 
 #endif

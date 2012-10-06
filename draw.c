@@ -3,6 +3,17 @@
 
 #include <math.h>
 
+struct matrix *ptToMatrix(struct pt *pt)
+{
+	/* Point is expected to be in global coordinates,
+	 * so convert it to arrow coordinates */
+	struct matrix *mtx = mtxCreate(1, 3);
+	mtxSet(mtx, 0, 0, pt->x - CENTERX - OFFWIDTH);
+	mtxSet(mtx, 0, 1, pt->y - CENTERY - OFFHEIGHT);
+	mtxSet(mtx, 0, 2, 1);
+	return mtx;
+}
+
 bool ptCompare(struct pt lhs, struct pt rhs)
 {
 	if(lhs.x != rhs.x || lhs.y != rhs.y)

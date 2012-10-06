@@ -17,6 +17,16 @@ struct matrix {
 	unsigned width, height;
 };
 
+struct pt mtxToPoint(struct matrix *mtx)
+{
+	/* Matrix is expected to be in arrow coordinates,
+	 * so convert it to global coordinates */
+	return (struct pt){
+		(GLint)mtxGet(mtx, 0, 0) + CENTERX + OFFWIDTH,
+			(GLint)mtxGet(mtx, 0, 1) + CENTERY + OFFHEIGHT
+			};
+}
+
 /* Calculates the position in the matrix array of the value */
 unsigned matrixPos(struct matrix *mtx, unsigned x, unsigned y)
 {
@@ -66,10 +76,8 @@ struct matrix *mtxFromArray(float array[], unsigned w, unsigned h)
 {
 	struct matrix *mtx = mtxCreate(w, h);
 	int i;
-	int x, y;
-	for(i = 0; i < w * h; i++) {
+	for(i = 0; i < w * h; i++)
 		mtx->mtx[i] = array[i];
-	}
 	return mtx;
 }
 
