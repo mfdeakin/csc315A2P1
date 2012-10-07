@@ -35,24 +35,9 @@ void drawLine(struct pt start, struct pt end)
 	if(!ptCompare(start, end) &&
 		 clipLine(&start, &end)) {
 		glColor3f(1.0f, 0.0f, 0.0f);
-		glBegin(GL_POINTS);
-
-		GLint deltax = end.x - start.x,
-			deltay = end.y - start.y;
-	
-		GLfloat mag = sqrtf(deltax * deltax + deltay * deltay),
-			dx = deltax / mag,
-			dy = deltay / mag,
-			x = start.x,
-			y = start.y;
-
-		int i;
-		for(i = 0; i <= mag; i++) {
-			glVertex2i((int)x, (int)y);
-			x += dx;
-			y += dy;
-
-		}
+		glBegin(GL_LINES);
+		glVertex2i(start.x, start.y);
+		glVertex2i(end.x, end.y);
 		glEnd();
 	}
 }
