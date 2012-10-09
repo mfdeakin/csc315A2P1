@@ -94,25 +94,30 @@ struct list *polyClipHelper(struct polygon *p);
 struct polygon *polyClip(struct polygon *poly)
 {
 	struct list *lst = polyClipHelper(poly);
-	return polyCreateList(lst);
+	struct polygon *p = polyCreateList(lst);
+	list_delete(lst);
+	return p;
 }
 
+/* Nasty function - needs to be cleaned up */
 struct list *polyClipHelper(struct polygon *p)
 {
+	bool once = false;
 	struct list *lst = list_create(0);
+	struct pt cur = polyPoint(p, p->verts - 1),
+		prv;
+	cur.x += OFFWIDTH + CENTERX;
+	cur.y += OFFHEIGHT + CENTERY;
 	for(int i = 0; i < p->verts; i++) {
-		struct pt cur = polyPoint(p, i);
-		struct pt prv;
-		if(i == 0) {
-			prv = polyPoint(p, p->verts - 1);
-		}
-		else {
-			prv = polyPoint(p, i - 1);
-		}
+		prv = cur;
+		cur = polyPoint(p, i);
+		cur.x += OFFWIDTH + CENTERX;
+		cur.y += OFFHEIGHT + CENTERY;
 		struct pt curbuf = cur,
 			prvbuf = prv;
 		struct matrix *mtx;
 		if(clipLine(&curbuf, &prvbuf)) {
+			once = true;
 			mtx = ptToMatrix(&prvbuf);
 			list_insert(lst, mtx);
 			mtx = ptToMatrix(&curbuf);
@@ -186,10 +191,50 @@ struct list *polyClipHelper(struct polygon *p)
 			}
 		}
 	}
+	if(!once) {
+		list_delete(lst);
+		lst = list_create(0);
+		struct matrix *mtx;
+		struct pt corners[5];
+		corners[0].x = OFFWIDTH;
+		corners[0].y = OFFHEIGHT;
+		corners[1].x = OFFWIDTH + VIEWWIDTH;
+		corners[1].y = OFFHEIGHT;
+		corners[2].x = OFFWIDTH + VIEWWIDTH;
+		corners[2].y = OFFHEIGHT + VIEWHEIGHT;
+		corners[3].x = OFFWIDTH;
+		corners[3].y = OFFHEIGHT + VIEWHEIGHT;
+		corners[4].x = OFFWIDTH;
+		corners[4].y = OFFHEIGHT;
+		int i;
+		for(i = 0; i < 5; i++) {
+			mtx = ptToMatrix(&corners[i]);
+			list_insert(lst, mtx);
+		}
+	}
 	return lst;
 }
 
-struct list *polySubdivide(struct polygon *poly);
+struct list *polySubdivide(struct polygon *p)
+{
+	struct list *polys;
+	struct {
+		struct pt pts[2];
+		bool active;
+	} *activeEdges;
+	activeEdges = malloc(sizeof(*activeEdges) * p->verts);
+	polys = list_create(0);
+	int i;
+	struct pt prv,
+		cur = polyPoint(p, 0);
+	for(i = 1; i < p->verts; i++) {
+		prv = cur;
+		cur = polyPoint(p, i);
+	}
+	free(activeEdges);
+	return polys;
+}
+
 struct list *polyTessellate(struct polygon *poly);
 
 struct matrix *polyToMatrix(struct polygon *poly)
@@ -212,16 +257,19 @@ struct list *polyToPtList(struct polygon *poly)
 
 void polyDraw(struct polygon *poly)
 {
-	int i;
+	list_delete(polySubdivide(poly));
+	struct list *lst = polyClipHelper(poly);
+	list_gotofront(lst);
+	struct matrix *mtx = list_next(lst);
+	if(!mtx)
+		return;
 	struct pt prv,
-		cur = polyPoint(poly, poly->verts - 1);
-	cur.x += OFFWIDTH + CENTERX;
-	cur.y += OFFHEIGHT + CENTERY;
-	for(i = 0; i < poly->verts; i++) {
+		cur = mtxToPoint(mtx);
+	while(list_hasnext(lst)) {
 		prv = cur;
-		cur = polyPoint(poly, i);
-		cur.x += OFFWIDTH + CENTERX;
-		cur.y += OFFHEIGHT + CENTERY;
+		mtx = list_next(lst);
+		cur = mtxToPoint(mtx);
+		mtxFree(mtx);
 		drawLine(prv, cur);
 	}
 }

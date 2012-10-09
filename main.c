@@ -15,6 +15,7 @@
 #include "polygon.h"
 
 #define PI 3.141592653589793
+#define REFRESHMS 5
 #define ARROWSIZE 7
 struct pt ARROWPOINTS[ARROWSIZE] = {
 	{200, 0},
@@ -58,7 +59,7 @@ void display(void)
 void timer(int val)
 {
 	glutPostRedisplay();
-	glutTimerFunc(10, timer, val + 1);
+	glutTimerFunc(REFRESHMS, timer, val + 1);
 }
 
 void drawArrow(void)
@@ -189,6 +190,7 @@ void initMatrices(void)
 
 int main(int argc, char **argv)
 {
+	printf("sizeof(main): %lu\n", sizeof(*main));
 	fill = false;
 	speed = 0;
 	initMatrices();
@@ -202,7 +204,7 @@ int main(int argc, char **argv)
 	glutReshapeFunc(resize);
 	glutMouseFunc(mpress);
 	glutKeyboardFunc(keypress);
-	glutTimerFunc(10, timer, 0);
+	glutTimerFunc(REFRESHMS, timer, 0);
 	glPointSize(5);
 	glutMainLoop();
   return 0;

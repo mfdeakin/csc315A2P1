@@ -62,6 +62,11 @@ void *list_next(struct list *lst)
 	return NULL;
 }
 
+int list_hasnext(struct list *lst)
+{
+	return lst->current->nxt != NULL;
+}
+
 void *list_getitem(struct list *lst)
 {
 	return lst->current->item;
