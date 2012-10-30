@@ -9,24 +9,24 @@ struct polygon {
 
 struct polygon *polyCreate(unsigned verts)
 {
-	struct polygon *p = malloc(sizeof(struct polygon));
-	p->mtx = mtxCreate(verts, 3);
-	p->verts = verts;
-	return p;
+	struct polygon *poly = malloc(sizeof(struct polygon));
+	poly->mtx = mtxCreate(verts, 3);
+	poly->verts = verts;
+	return poly;
 }
 
 struct polygon *polyCreateList(struct list *lst)
 {
-	struct polygon *p = polyCreate(list_size(lst));
+	struct polygon *poly = polyCreate(list_size(lst));
 	int i;
 	list_gotofront(lst);
-	for(i = 0; i < p->verts; i++) {
+	for(i = 0; i < poly->verts; i++) {
 		struct pt *pt = (struct pt*)list_next(lst);
-		mtxSet(p->mtx, i, 0, pt->x);
-		mtxSet(p->mtx, i, 1, pt->y);
-		mtxSet(p->mtx, i, 2, 1);
+		mtxSet(poly->mtx, i, 0, pt->x);
+		mtxSet(poly->mtx, i, 1, pt->y);
+		mtxSet(poly->mtx, i, 2, 1);
 	}
-	return p;
+	return poly;
 }
 
 struct polygon *polyCreatePoints(struct pt *points,
@@ -215,27 +215,159 @@ struct list *polyClipHelper(struct polygon *p)
 	return lst;
 }
 
-struct list *polySubdivide(struct polygon *p)
+struct sortPoint {
+	struct pt ends[2];
+	unsigned index;
+	bool start;
+};
+
+int compSPoint(const struct sortPoint *lhs,
+							 const struct sortPoint *rhs)
 {
-	struct list *polys;
-	struct {
-		struct pt pts[2];
-		bool active;
-	} *activeEdges;
-	activeEdges = malloc(sizeof(*activeEdges) * p->verts);
-	polys = list_create(0);
-	int i;
-	struct pt prv,
-		cur = polyPoint(p, 0);
-	for(i = 1; i < p->verts; i++) {
+	if(rhs->index == lhs->index)
+		return 0;
+	if(lhs->ends[0].y == rhs->ends[0].y)
+		return rhs->index - lhs->index;
+	return lhs->ends[0].y - rhs->ends[0].y;
+}
+
+struct list *polySubdivide(struct polygon *poly)
+{
+	struct sortPoint *eStart, *eEnd, *eRef;
+	eStart = malloc(sizeof(*eStart) * poly->verts);
+	eEnd = malloc(sizeof(*eEnd) * poly->verts);
+	eRef = malloc(sizeof(*eRef) * poly->verts);
+	/* Collect all of our points into the array for sorting */
+	unsigned i, j, k;
+	struct pt cur = polyPoint(poly, poly->verts - 1),
+		prv;
+	for(i = 0; i < poly->verts; i++) {
 		prv = cur;
-		cur = polyPoint(p, i);
+		cur = polyPoint(poly, i);
+		if(prv.y <= cur.y) {
+			eStart[i].ends[0] = cur;
+			eStart[i].ends[1] = prv;
+			eEnd[i].ends[0] = prv;
+			eEnd[i].ends[1] = cur;
+		}
+		else {
+			eStart[i].ends[0] = prv;
+			eStart[i].ends[1] = cur;
+			eEnd[i].ends[0] = cur;
+			eEnd[i].ends[1] = prv;
+		}
+		eStart[i].index = i;
+		eStart[i].start = true;
+		eEnd[i].index = i;
+		eEnd[i].start = false;
+		eRef[i] = eStart[i];
 	}
-	free(activeEdges);
+	qsort(eStart, sizeof(*eStart), poly->verts,
+				(__compar_fn_t)compSPoint);
+	qsort(eStart, sizeof(*eEnd), poly->verts,
+				(__compar_fn_t)compSPoint);
+	/* The edges are sorted, now merge them into one array
+	 * This way we know when an edge ends and starts.
+	 * The edge array is a reference for relative to the others */
+	struct sortPoint *edges = malloc(sizeof(*edges) * poly->verts * 2),
+		*active = malloc(sizeof(*active) * poly->verts);
+	for(i = 0, j = 0, k = 0; i < poly->verts * 2; i++) {
+		if(eStart[j].ends[0].y > eEnd[k].ends[0].y) {
+			edges[i] = eStart[j];
+			j++;
+		}
+		else {
+			edges[i] = eEnd[k];
+			k++;
+		}
+	}
+	free(eStart);
+	free(eEnd);
+	/* Now the fun part */
+	unsigned numActive = 0;
+	for(i = 0; i < poly->verts * 2; i++) {
+		if(edges[i].start) {
+			numActive++;
+		}
+		else {
+			/* I am terrible person. for loop abuser */
+			for(j = 0;
+					compSPoint(&active[j], &edges[i]);
+					j++);
+			numActive--;
+			while(j < numActive) {
+				active[j] = active[j + 1];
+				j++;
+			}
+		}
+	}
+	struct list *polys;
+	polys = list_create(0);
+	free(edges);
 	return polys;
 }
 
-struct list *polyTessellate(struct polygon *poly);
+struct list *polyTessellate(struct polygon *poly)
+{
+	struct list *triPoints = list_create(0);
+	struct list *unused = polyToPtList(poly);
+	list_gotofront(unused);
+	struct pt *prv,
+		*cur = (struct pt *)list_next(unused),
+		*nxt = (struct pt *)list_next(unused);
+	while(list_size(unused) > 3) {
+		if(!list_hasnext(unused))
+			list_gotofront(unused);
+		prv = cur;
+		cur = nxt;
+		nxt = (struct pt *)list_next(unused);
+		cur->x -= prv->x;
+		cur->y -= prv->y;
+		nxt->x -= prv->x;
+		nxt->y -= prv->y;
+		int vecProd = ptVecProd(cur, nxt);
+		cur->x += prv->x;
+		cur->y += prv->y;
+		if(vecProd == 0) {
+			/* Points are collinear */
+			list_prev(unused);
+			list_removeitem(unused);
+		}
+		else if(vecProd > 0) {
+			unsigned j = 0;
+			bool add = true;
+			while(j < list_size(unused)) {
+				if(!list_hasnext(unused))
+					list_gotofront(unused);
+				struct pt *check = (struct pt *)list_next(unused);
+				check->x -= prv->x;
+				check->y -= prv->y;
+				if(ptVecProd(check, nxt) < 0)
+					add = false;
+				j++;
+			}
+			if(add) {
+				list_insert(triPoints, cur);
+				if(list_hasprev(unused))
+					list_prev(unused);
+				else
+					list_gotoback(unused);
+				list_removeitem(unused);
+				list_gotofront(unused);
+			}
+		}
+		nxt->x += prv->x;
+		nxt->y += prv->y;
+	}
+	for(int i = 0; i < 3; i++) {
+		if(!list_hasnext(unused))
+			list_gotofront(unused);
+		void *tmp = list_next(unused);
+		list_insert(triPoints, tmp);
+	}
+	list_delete(unused);
+	return triPoints;
+}
 
 struct matrix *polyToMatrix(struct polygon *poly)
 {
@@ -257,9 +389,10 @@ struct list *polyToPtList(struct polygon *poly)
 
 void polyDraw(struct polygon *poly)
 {
-	list_delete(polySubdivide(poly));
+	struct list *tessell = polyTessellate(poly);
 	struct list *lst = polyClipHelper(poly);
 	list_gotofront(lst);
+	list_gotofront(tessell);
 	struct matrix *mtx = list_next(lst);
 	if(!mtx)
 		return;
@@ -272,4 +405,16 @@ void polyDraw(struct polygon *poly)
 		mtxFree(mtx);
 		drawLine(prv, cur);
 	}
+	glBegin(GL_POINTS);
+	printf("Tessellated points:\nx:\ty:\n");
+	while(list_hasnext(tessell)) {
+		struct pt *tmp = (struct pt *)list_next(tessell);
+		glColor3f(0.0f, 1.0f, 0.0f);
+		glVertex2i(tmp->x + CENTERX + OFFWIDTH, tmp->y + CENTERY + OFFHEIGHT);
+		printf("%d\t%d\n", tmp->x, tmp->y);
+		free(tmp);
+	}
+	glEnd();
+	list_delete(lst);
+	list_delete(tessell);
 }

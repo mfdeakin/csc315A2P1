@@ -190,7 +190,6 @@ void initMatrices(void)
 
 int main(int argc, char **argv)
 {
-	printf("sizeof(main): %lu\n", sizeof(*main));
 	fill = false;
 	speed = 0;
 	initMatrices();

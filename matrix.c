@@ -6,6 +6,7 @@
 
 #ifdef MTXDEBUG
 #define debug(str) fprintf(stderr, str)
+#define fdebug fprintf
 #else
 int debug(char *str) {
 	return 0;

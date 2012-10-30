@@ -21,6 +21,12 @@ bool ptCompare(struct pt lhs, struct pt rhs)
 	return true;
 }
 
+GLint ptVecProd(struct pt *lhs, struct pt *rhs)
+{
+	return lhs->x * rhs->y -
+		lhs->y * rhs->x;
+}
+
 bool inViewport(int x, int y) {
 	if(x > OFFWIDTH && y > OFFWIDTH &&
 		 x < OFFWIDTH + VIEWWIDTH &&

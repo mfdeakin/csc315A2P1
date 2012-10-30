@@ -4,15 +4,15 @@
 
 struct list
 {
-	struct list_elem *front;
+	struct list_elem *front, *back;
 	struct list_elem *current;
-	int circular:1;
-	int size;
+	unsigned circular:1;
+	unsigned size:31;
 };
 
 struct list_elem
 {
-	struct list_elem *nxt;
+	struct list_elem *nxt, *prv;
 	void *item;
 };
 
@@ -30,8 +30,8 @@ struct list *list_create(int iscircle)
 {
 	struct list *ret = malloc(sizeof(struct list));
 	ret->circular = iscircle;
-	ret->front = ret->current = malloc(sizeof(struct list_elem));
-	memset(ret->front, 0, sizeof(struct list_elem));
+	ret->back = ret->front = ret->current = malloc(sizeof(struct list_elem));
+	memset(ret->back, 0, sizeof(struct list_elem));
 	ret->size = 0;
 	return ret;
 }
@@ -39,32 +39,62 @@ struct list *list_create(int iscircle)
 void list_delete(struct list *lst)
 {
 	lst->current = lst->front;
-	while(lst->current)
-		{
-			lst->front = lst->current;
-			lst->current = lst->current->nxt;
-			free(lst->front);
-		}
+	while(lst->current)	{
+		lst->front = lst->current;
+		lst->current = lst->current->nxt;
+		free(lst->front);
+	}
 	free(lst);
+}
+
+struct list *list_sort(struct list *lst,
+											 int (*compare)(const void **lhs, const void **rhs))
+{
+	struct list *sorted = list_create(lst->circular);
+	void **data = malloc(sizeof(void *[lst->size]));
+	struct list_elem *el;
+	unsigned i;
+	for(el = lst->front, i = 0; el; el = el->nxt, i++) {
+		data[i] = el->item;
+	}
+	qsort(data, sizeof(void *), i, (int (*)(const void *, const void *))compare);
+	unsigned j;
+	for(j = 0; j < i; j++) {
+		list_insert(sorted, data[j]);
+	}
+	return sorted;
 }
 
 void *list_next(struct list *lst)
 {
-	if(lst->current != NULL)
-		{
-			if(lst->circular && lst->current->nxt == NULL)
-				lst->current = lst->front;
-			else
-				lst->current = lst->current->nxt;
-			if(lst->current)
-				return lst->current->item;
-		}
+	if(lst->current != NULL) {
+		if(lst->circular && lst->current->nxt == NULL)
+			lst->current = lst->front;
+		else
+			lst->current = lst->current->nxt;
+		if(lst->current)
+			return lst->current->item;
+	}
+	return NULL;
+}
+
+void *list_prev(struct list *lst)
+{
+	if(lst->current != NULL) {
+		if(lst->circular && lst->current->prv == NULL)
+			lst->current = lst->back;
+		else
+			lst->current = lst->current->prv;
+		if(lst->current)
+			return lst->current->item;
+	}
 	return NULL;
 }
 
 int list_hasnext(struct list *lst)
 {
-	return lst->current->nxt != NULL;
+	return (lst->circular && lst->current) ||
+		(lst->current != NULL && lst->current->nxt != NULL);
 }
 
 void *list_getitem(struct list *lst)
@@ -76,12 +106,11 @@ int list_gotoitem(struct list *lst, void *item, int (*compare)(void *orig, void 
 {
 	struct list_elem *finder = lst->current;
 	for(list_next(lst);
-		!compare(item, lst->current->item) && lst->current != finder;
-		list_next(lst))
-		{
-			if(lst->current == NULL)
-				lst->current = lst->front;
-		}
+			!compare(item, lst->current->item) && lst->current != finder;
+			list_next(lst)) {
+		if(lst->current == NULL)
+			lst->current = lst->front;
+	}
 	return (lst->current != finder);
 }
 
@@ -96,6 +125,38 @@ int list_setitem(struct list *lst, void *item)
 	return 1;
 }
 
+void list_removeitem(struct list *lst)
+{
+	struct list_elem *nxt = lst->current->nxt,
+		*prv = lst->current->prv;
+	free(lst->current);
+	if(lst->current == lst->front) {
+		lst->front = nxt;
+	}
+	if(lst->current == lst->back) {
+		lst->back = prv;
+	}
+	if(nxt) {
+		nxt->prv = prv;
+		lst->current = nxt;
+	}
+	else
+		lst->current = lst->front;
+	if(prv)
+		prv->nxt = nxt;
+	lst->size--;
+}
+
+int list_hasprev(struct list *lst)
+{
+	return lst->current->prv != NULL;
+}
+
+void list_gotoback(struct list *lst)
+{
+	lst->current = lst->back;
+}
+
 int list_insert(struct list *lst, void *item)
 {
 	if(lst->current == NULL)
@@ -103,7 +164,10 @@ int list_insert(struct list *lst, void *item)
 	struct list_elem *prv = lst->current;
 	struct list_elem *nxt = lst->current->nxt;
 	prv->nxt = lst->current = malloc(sizeof(struct list_elem));
+	if(nxt)
+		nxt->prv = lst->current;
 	lst->current->nxt = nxt;
+	lst->current->prv = prv;
 	int ret = list_setitem(lst, item);
 	lst->size++;
 	return ret;

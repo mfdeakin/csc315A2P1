@@ -39,4 +39,6 @@ int interpolateX(struct pt p1, struct pt p2, int p1x);
 int interpolateY(struct pt p1, struct pt p2, int p1y);
 struct matrix *ptToMatrix(struct pt *pt);
 
+GLint ptVecProd(struct pt *lhs, struct pt *rhs);
+
 #endif
