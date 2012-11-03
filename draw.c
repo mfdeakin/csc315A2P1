@@ -21,10 +21,15 @@ bool ptCompare(struct pt lhs, struct pt rhs)
 	return true;
 }
 
-GLint ptVecProd(struct pt *lhs, struct pt *rhs)
+void ptDbgPrint(struct pt point)
 {
-	return lhs->x * rhs->y -
-		lhs->y * rhs->x;
+	printf("dbg: x: %5d y: %5d\n", point.x, point.y);
+}
+
+GLint ptVecProd(struct pt lhs, struct pt rhs)
+{
+	return lhs.x * rhs.y -
+		lhs.y * rhs.x;
 }
 
 bool inViewport(int x, int y) {

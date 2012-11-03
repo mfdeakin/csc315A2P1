@@ -37,7 +37,7 @@ struct polygon *polyClip(struct polygon *poly);
 struct list *polySubdivide(struct polygon *poly);
 /* Returns a list of triangles
  * which together form the original polygon */
-struct list *polyTessellate(struct polygon *poly);
+struct polygon **polyTessellate(struct polygon *poly);
 
 struct matrix *polyToMatrix(struct polygon *poly);
 struct list *polyToPtList(struct polygon *poly);

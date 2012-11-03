@@ -1,5 +1,6 @@
 
 #include "polygon.h"
+#include <string.h>
 #include <stdlib.h>
 
 struct polygon {
@@ -52,15 +53,15 @@ struct polygon *polyCopy(struct polygon *src)
 
 void polyFree(struct polygon *p)
 {
-	free(p->mtx);
+	mtxFree(p->mtx);
 	free(p);
 }
 
 void polySetPoint(struct polygon *p,
 									unsigned i, struct pt *pos)
 {
-	mtxSet(p->mtx, i, 0, pos[i].x);
-	mtxSet(p->mtx, i, 1, pos[i].y);
+	mtxSet(p->mtx, i, 0, pos->x);
+	mtxSet(p->mtx, i, 1, pos->y);
 }
 
 struct pt polyPoint(struct polygon *p,
@@ -231,6 +232,7 @@ int compSPoint(const struct sortPoint *lhs,
 	return lhs->ends[0].y - rhs->ends[0].y;
 }
 
+/* Not done yet */
 struct list *polySubdivide(struct polygon *poly)
 {
 	struct sortPoint *eStart, *eEnd, *eRef;
@@ -307,66 +309,114 @@ struct list *polySubdivide(struct polygon *poly)
 	return polys;
 }
 
-struct list *polyTessellate(struct polygon *poly)
+bool lineIntersect(struct pt a1, struct pt a2,
+									 struct pt b1, struct pt b2)
 {
-	struct list *triPoints = list_create(0);
-	struct list *unused = polyToPtList(poly);
-	list_gotofront(unused);
-	struct pt *prv,
-		*cur = (struct pt *)list_next(unused),
-		*nxt = (struct pt *)list_next(unused);
-	while(list_size(unused) > 3) {
-		if(!list_hasnext(unused))
-			list_gotofront(unused);
+	struct pt A = {a2.x - a1.x, a2.y - a1.y},
+		u1 = {b1.x - a1.x, b1.y - a1.y},
+		u2 = {b2.x - a1.x, b2.y - a1.y};
+	unsigned aS1 = ptVecProd(A, u1),
+		aS2 = ptVecProd(A, u2);
+	if(aS1 == 0 || aS2 == 0)
+		/* We don't consider it interesection if b1 or b2 is on A */
+		return false;
+	if((aS1 < 0 && aS2 < 0) ||
+		 (aS1 > 0 && aS2 > 0))
+		/* Same sign, so b1 and b2 are on the same side of A */
+		return false;
+	struct pt B = {b2.x - b1.x, b2.y - b1.y},
+		u3 = {a2.x - b1.x, a2.y - b1.y};
+	unsigned bS1 = ptVecProd(u1, B),
+		bS2 = ptVecProd(B, u3);
+	if((bS1 < 0 && bS2 < 0) ||
+		 (bS1 > 0 && bS2 > 0))
+		return false;
+	return true;
+}
+
+unsigned nextUnused(bool used[], unsigned cur, unsigned count) {
+	unsigned pos;
+	/* WARNING: For Loop Abuse */
+	for(pos = (cur + 1) % count;
+			used[pos] && pos != cur;
+			pos = (pos + 1) % count);
+	return pos;
+}
+
+struct polygon **polyTessellate(struct polygon *poly)
+{
+	/* This code is terrible, because I'm not using a linked list (like I should!)
+	 * However, I need a new linked list object, because this is better than using
+	 * my current one. */
+	struct polygon **tess = malloc(sizeof(struct polygon *[poly->verts - 2]));
+	unsigned i;
+	for(i = 0; i < poly->verts - 2; i++)
+		tess[i] = polyCreate(3);
+	bool *used = malloc(sizeof(bool[poly->verts]));
+	memset(used, false, sizeof(bool[poly->verts]));
+	unsigned prv, cur, nxt, count;
+	cur = 0;
+	nxt = 1;
+	count = 0;
+	while(count < poly->verts - 3) {
 		prv = cur;
 		cur = nxt;
-		nxt = (struct pt *)list_next(unused);
-		cur->x -= prv->x;
-		cur->y -= prv->y;
-		nxt->x -= prv->x;
-		nxt->y -= prv->y;
-		int vecProd = ptVecProd(cur, nxt);
-		cur->x += prv->x;
-		cur->y += prv->y;
-		if(vecProd == 0) {
-			/* Points are collinear */
-			list_prev(unused);
-			list_removeitem(unused);
-		}
-		else if(vecProd > 0) {
-			unsigned j = 0;
+		nxt = nextUnused(used, nxt, poly->verts);
+		/* Yes I hate Hungarian notation as much as the next guy,
+		 * but I'm too busy/lazy to come up with better names for these */
+		struct pt ptPrv = polyPoint(poly, prv),
+			ptCur = polyPoint(poly, cur),
+			ptNxt = polyPoint(poly, nxt);
+		ptCur.x -= ptPrv.x;
+		ptCur.y -= ptPrv.y;
+		ptNxt.x -= ptPrv.x;
+		ptNxt.y -= ptPrv.y;
+		if(ptVecProd(ptCur, ptNxt) > 0) {
+			/* Conditional Acceptance, because of counterclockwise winding order */
+			ptNxt.x += ptPrv.x;
+			ptNxt.y += ptPrv.y;
 			bool add = true;
-			while(j < list_size(unused)) {
-				if(!list_hasnext(unused))
-					list_gotofront(unused);
-				struct pt *check = (struct pt *)list_next(unused);
-				check->x -= prv->x;
-				check->y -= prv->y;
-				if(ptVecProd(check, nxt) < 0)
+			unsigned cmpA = nextUnused(used, nxt, poly->verts),
+				cmpB;
+			for(cmpB = nextUnused(used, cmpA, poly->verts);
+					cmpB != prv;
+					cmpA = cmpB,
+						cmpB = nextUnused(used, cmpB, poly->verts)) {
+				cmpB = nextUnused(used, cmpB, poly->verts);
+				struct pt ptCmpA = polyPoint(poly, cmpA),
+					ptCmpB = polyPoint(poly, cmpB);
+				if(lineIntersect(ptCmpA, ptCmpB,
+												 ptPrv, ptNxt)) {
 					add = false;
-				j++;
+					break;
+				}
 			}
 			if(add) {
-				list_insert(triPoints, cur);
-				if(list_hasprev(unused))
-					list_prev(unused);
-				else
-					list_gotoback(unused);
-				list_removeitem(unused);
-				list_gotofront(unused);
+				struct pt tmp;
+				tmp = polyPoint(poly, prv);
+				polySetPoint(tess[count], 0, &tmp);
+				tmp = polyPoint(poly, cur);
+				polySetPoint(tess[count], 1, &tmp);
+				tmp = polyPoint(poly, nxt);
+				polySetPoint(tess[count], 2, &tmp);
+				used[cur] = true;
+				count++;
+				/* Need to skip cur, do this by advancing an extra step.
+				 * We don't need to update prv, it will be overwritten anyways */
+				cur = nxt;
+				nxt = nextUnused(used, nxt, poly->verts);
 			}
 		}
-		nxt->x += prv->x;
-		nxt->y += prv->y;
 	}
-	for(int i = 0; i < 3; i++) {
-		if(!list_hasnext(unused))
-			list_gotofront(unused);
-		void *tmp = list_next(unused);
-		list_insert(triPoints, tmp);
-	}
-	list_delete(unused);
-	return triPoints;
+	struct pt tmp;
+	tmp = polyPoint(poly, prv);
+	polySetPoint(tess[count], 0, &tmp);
+	tmp = polyPoint(poly, cur);
+	polySetPoint(tess[count], 1, &tmp);
+	tmp = polyPoint(poly, nxt);
+	polySetPoint(tess[count], 2, &tmp);
+	free(used);
+	return tess;
 }
 
 struct matrix *polyToMatrix(struct polygon *poly)
@@ -389,32 +439,30 @@ struct list *polyToPtList(struct polygon *poly)
 
 void polyDraw(struct polygon *poly)
 {
-	struct list *tessell = polyTessellate(poly);
-	struct list *lst = polyClipHelper(poly);
-	list_gotofront(lst);
-	list_gotofront(tessell);
-	struct matrix *mtx = list_next(lst);
-	if(!mtx)
-		return;
-	struct pt prv,
-		cur = mtxToPoint(mtx);
-	while(list_hasnext(lst)) {
-		prv = cur;
-		mtx = list_next(lst);
-		cur = mtxToPoint(mtx);
-		mtxFree(mtx);
-		drawLine(prv, cur);
+	if(poly->verts > 3) {
+		struct polygon **tessellated = polyTessellate(poly);
+		unsigned i;
+		for(i = 0; i < poly->verts - 2; i++) {
+			polyDraw(tessellated[i]);
+			polyFree(tessellated[i]);
+		}
+		free(tessellated);
 	}
-	glBegin(GL_POINTS);
-	printf("Tessellated points:\nx:\ty:\n");
-	while(list_hasnext(tessell)) {
-		struct pt *tmp = (struct pt *)list_next(tessell);
-		glColor3f(0.0f, 1.0f, 0.0f);
-		glVertex2i(tmp->x + CENTERX + OFFWIDTH, tmp->y + CENTERY + OFFHEIGHT);
-		printf("%d\t%d\n", tmp->x, tmp->y);
-		free(tmp);
+	else {
+		struct list *lst = polyClipHelper(poly);
+		list_gotofront(lst);
+		struct matrix *mtx = list_next(lst);
+		if(!mtx)
+			return;
+		struct pt prv,
+			cur = mtxToPoint(mtx);
+		while(list_hasnext(lst)) {
+			prv = cur;
+			mtx = list_next(lst);
+			cur = mtxToPoint(mtx);
+			mtxFree(mtx);
+			drawLine(prv, cur);
+		}
+		list_delete(lst);
 	}
-	glEnd();
-	list_delete(lst);
-	list_delete(tessell);
 }

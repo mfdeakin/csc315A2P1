@@ -1,4 +1,7 @@
 
+/* This linked list needs serious work to be considered usable.
+ * Just some really old code I dug up. Why did I do that :( */
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -170,6 +173,8 @@ int list_insert(struct list *lst, void *item)
 	lst->current->prv = prv;
 	int ret = list_setitem(lst, item);
 	lst->size++;
+	if(lst->back == prv)
+		lst->back = lst->current;
 	return ret;
 }
 
