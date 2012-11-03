@@ -65,7 +65,7 @@ void timer(int val)
 void drawArrow(void)
 {
 	polyTransformIP(arrow, transform);
-	polyDraw(arrow);
+	polyDraw(arrow, fill);
 }
 
 void resize(GLsizei width, GLsizei height)

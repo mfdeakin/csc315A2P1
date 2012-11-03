@@ -35,13 +35,14 @@ struct polygon *polyClip(struct polygon *poly);
 /* Returns a list of monotonic polygons 
  * which together form the original */
 struct list *polySubdivide(struct polygon *poly);
-/* Returns a list of triangles
+/* Returns an array of triangles (length of verts - 2)
  * which together form the original polygon */
 struct polygon **polyTessellate(struct polygon *poly);
 
 struct matrix *polyToMatrix(struct polygon *poly);
 struct list *polyToPtList(struct polygon *poly);
 
-void polyDraw(struct polygon *poly);
+/* Draws the polygon, filling it if requested */
+void polyDraw(struct polygon *poly, bool fill);
 
 #endif

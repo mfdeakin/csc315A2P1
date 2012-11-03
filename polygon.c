@@ -1,5 +1,6 @@
 
 #include "polygon.h"
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -392,6 +393,9 @@ struct polygon **polyTessellate(struct polygon *poly)
 				}
 			}
 			if(add) {
+				/* No intersections were detected!
+				 * Accept the point :)
+				 * Construct a triangle out of the 3 points */
 				struct pt tmp;
 				tmp = polyPoint(poly, prv);
 				polySetPoint(tess[count], 0, &tmp);
@@ -437,32 +441,80 @@ struct list *polyToPtList(struct polygon *poly)
 	return lst;
 }
 
-void polyDraw(struct polygon *poly)
+void fillTriangle(struct polygon *poly) {
+	struct pt a = polyPoint(poly, 0),
+		b = polyPoint(poly, 1),
+		c = polyPoint(poly, 2);
+	/* Sort the points for the line scan algorithm */
+	if(b.y < c.y) {
+		struct pt tmp = b;
+		b = c;
+		c = tmp;
+	}
+	if(a.y < b.y) {
+		struct pt tmp = a;
+		a = b;
+		b = tmp;
+	}
+	if(b.y < c.y) {
+		struct pt tmp = b;
+		b = c;
+		c = tmp;
+	}
+	/* a >= b >= c */
+	/* Now fill in the triangle! */
+	int y;
+	for(y = a.y; y > c.y || y > b.y; y--) {
+		int xab = interpolateY(a, b, y),
+			xbc = interpolateY(b, c, y),
+			xac = interpolateY(a, c, y);
+		struct pt tmp1, tmp2;
+		tmp1.x = xac + CENTERX + OFFWIDTH;
+		tmp1.y = y + CENTERY + OFFHEIGHT;
+		if(abs(xab - xac) < abs(xbc - xac)) {
+			tmp2.x = xab + CENTERX + OFFWIDTH;
+		}
+		else {
+			tmp2.x = xbc + CENTERX + OFFWIDTH;
+		}
+		tmp2.y = y + CENTERY + OFFHEIGHT;
+		drawLine(tmp1, tmp2);
+	}
+}
+
+void outlineTriangle(struct polygon *poly) {
+	struct list *lst = polyClipHelper(poly);
+	list_gotofront(lst);
+	struct matrix *mtx = list_next(lst);
+	if(!mtx)
+		return;
+	struct pt prv,
+		cur = mtxToPoint(mtx);
+	while(list_hasnext(lst)) {
+		prv = cur;
+		mtx = list_next(lst);
+		cur = mtxToPoint(mtx);
+		mtxFree(mtx);
+		drawLine(prv, cur);
+	}
+	list_delete(lst);
+}
+
+void polyDraw(struct polygon *poly, bool fill)
 {
 	if(poly->verts > 3) {
 		struct polygon **tessellated = polyTessellate(poly);
 		unsigned i;
 		for(i = 0; i < poly->verts - 2; i++) {
-			polyDraw(tessellated[i]);
+			polyDraw(tessellated[i], fill);
 			polyFree(tessellated[i]);
 		}
 		free(tessellated);
 	}
 	else {
-		struct list *lst = polyClipHelper(poly);
-		list_gotofront(lst);
-		struct matrix *mtx = list_next(lst);
-		if(!mtx)
-			return;
-		struct pt prv,
-			cur = mtxToPoint(mtx);
-		while(list_hasnext(lst)) {
-			prv = cur;
-			mtx = list_next(lst);
-			cur = mtxToPoint(mtx);
-			mtxFree(mtx);
-			drawLine(prv, cur);
-		}
-		list_delete(lst);
+		if(fill)
+			fillTriangle(poly);
+		else
+			outlineTriangle(poly);
 	}
 }
